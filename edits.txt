@@ -1,0 +1,698 @@
+===========================================================================
+  FUNCOES E EXPLICACAO COMPLETA — MAPA (MapModel / MapView / MapController)
+===========================================================================
+
+1. MapModel (src/model/MapModel.java)
+=====================================
+
+  CLASSE EXTERNA: MapModel
+  -------------------------
+  Modelo que representa o mapa do jogo, contendo uma lista de areas.
+
+  ATRIBUTOS:
+    - areas: List<Area>  -> 3 areas fixas: Floresta, Caverna, Montanha
+
+  CONSTRUTOR:
+    MapModel()
+      -> this.areas = new ArrayList<>()
+      -> inicializarAreas()
+
+  METODOS:
+    - void inicializarAreas()
+        Cria 3 areas com nomes, descricoes e geradores de inimigos:
+          Area 0: "Floresta Sombria" -> Goblin, Goblin, BruxaVerde
+          Area 1: "Caverna dos Orcs"  -> saqueador, saqueador, Goblin
+          Area 2: "Montanha do Dragao" -> DragaoBoss
+
+    - List<Area> getAreas()
+        Retorna a lista completa de areas
+
+    - Area getArea(int index)
+        Retorna area no indice (0-based), ou null se invalido
+
+    - int getQuantidadeAreas()
+        Retorna quantas areas existem (3)
+
+
+  CLASSE INTERNA: Area
+  --------------------
+  Modela uma regiao especifica do mapa.
+
+  ATRIBUTOS:
+    - nome: String
+    - descricao: String
+    - geradoresInimigos: List<Supplier<Enemy>>
+
+  CONSTRUTOR:
+    Area(String nome, String descricao, List<Supplier<Enemy>> geradoresInimigos)
+
+  METODOS:
+    - String getNome()
+    - String getDescricao()
+    - Enemy gerarInimigoAleatorio()
+        Sorteia um Supplier da lista e chama .get() para criar um inimigo
+
+
+2. MapView (src/view/MapView.java)
+===================================
+
+  Classe responsavel por exibir o mapa e capturar acoes do jogador.
+
+  ATRIBUTO:
+    - scanner: Scanner
+
+  METODOS:
+    - void mostrarAreas(List<Area> areas)
+        Imprime:
+          ========== MAPA — ESCOLHA UMA ÁREA ==========
+          1. Floresta Sombria
+             Uma floresta densa...
+          2. Caverna dos Orcs
+             Uma caverna escura...
+          3. Montanha do Dragao
+             O pico mais alto...
+          0. Sair do jogo
+          ==============================================
+
+    - void mostrarAreaAtual(Area area)
+        Imprime: "--- Local atual: <nome> ---"
+
+    - int escolherArea()
+        Le input do usuario via nextLine()
+        Retorna int (0 para sair, -1 se entrada invalida)
+
+    - void mostrarMensagem(String mensagem)
+        Print simples
+
+    - void mostrarEncontro(String nomeInimigo)
+        Imprime: "!!! Um <nome> selvagem apareceu !!!"
+
+
+3. MapController (src/controller/MapController.java)
+=====================================================
+
+  Controlador que gerencia navegacao no mapa e encontros com inimigos.
+  (NAO usado no jogo atual — GameController implementa sua propria logica)
+
+  ATRIBUTOS:
+    - model: MapModel
+    - view: MapView
+    - areaAtual: int (indice, -1 = nenhuma)
+
+  METODOS:
+    - void mostrarMapa()
+        Chama view.mostrarAreas(model.getAreas())
+
+    - boolean escolherArea()
+        view.escolherArea() -> se 0 retorna false
+        Se valido: areaAtual = indice, view.mostrarAreaAtual(area), retorna true
+        Se invalido: mostra mensagem e recursao
+
+    - Enemy gerarEncontro()
+        Chama area.gerarInimigoAleatorio() e view.mostrarEncontro()
+
+    - Area getAreaAtual()
+    - int getIndiceAreaAtual()
+    - int getQuantidadeAreas()
+
+
+===========================================================================
+  FUNCOES E EXPLICACAO COMPLETA — GAME (GameModel / GameView / GameController)
+===========================================================================
+
+4. GameModel (src/model/GameModel.java)
+========================================
+
+  Modelo principal do jogo — estado global da partida.
+
+  ATRIBUTOS:
+    - player: Player            -> personagem do jogador
+    - state: String             -> estado atual da maquina de estados
+    - inimigosDerrotados: int   -> total de inimigos derrotados (todas fases)
+    - maxHp: int                -> HP maximo do jogador (aumenta com level)
+    - fase: int                 -> fase atual (1 a 4)
+    - inimigosNestaFase: int    -> inimigos derrotados na fase atual
+    - gold: int                 -> ouro acumulado para compras
+
+  CONSTRUTOR:
+    GameModel()
+      state = "MENU"
+      inimigosDerrotados = 0
+      fase = 1
+      inimigosNestaFase = 0
+      gold = 0
+
+  GETTERS:
+    - Player getPlayer()
+    - String getState()
+    - int getInimigosDerrotados()
+    - int getMaxHp()
+    - int getFase()
+    - int getInimigosNestaFase()
+    - int getGold()
+
+  SETTERS:
+    - void setPlayer(Player p)
+        player = p; maxHp = p.getHp()
+    - void setState(String s)
+    - void setMaxHp(int v)
+    - void setFase(int f)
+        fase = f; inimigosNestaFase = 0  (reseta contagem da nova fase)
+    - void setGold(int v)
+
+  METODOS:
+    - void incrementarInimigos()
+        inimigosDerrotados++  (total)
+
+    - void incrementarInimigosNaFase()
+        inimigosNestaFase++  (so na fase atual)
+
+    - void addGold(int valor)
+        Soma ao gold se valor > 0
+
+    - boolean gastarGold(int valor)
+        Se tem saldo: gold -= valor, retorna true
+        Senao: retorna false
+
+
+5. GameView (src/view/GameView.java)
+=====================================
+
+  View principal — toda a interface com o usuario.
+
+  ATRIBUTO:
+    - scanner: Scanner
+
+  ===== MENU / NAVEGACAO =====
+
+  void mostrarMenu()
+    Imprime:
+      ========================================
+          DESTINO DA COROA
+      ========================================
+      1. Novo Jogo
+      2. Sair
+      ========================================
+
+  int escolherOpcaoMenu() / int escolherOpcao()
+    Le entrada, retorna int ou -1 se nao for numero
+
+  void aguardar()
+    "Pressione Enter para continuar..." + scanner.nextLine()
+
+
+  ===== HISTORIA =====
+
+  void mostrarHistoria()
+    Introducao — "A Coroa do Reino foi roubada pelo temivel Dragao Chefe!"
+
+  void mostrarFaseInfo(int fase)
+    Fase 1: "=== FASE 1: FLORESTA SOMBRIA ==="
+    Fase 2: "=== FASE 2: CAVERNA DOS ORCS ==="
+    Fase 3: "=== FASE 3: MONTANHA GELADA ==="
+    Fase 4: "=== FASE 4: PICO DO DRAGAO ==="
+
+  void mostrarProgressoHistoria(int inimigosDerrotados)
+    Dicas contextuals nos marcos 1, 3, 5 inimigos
+
+
+  ===== HUD / STATUS =====
+
+  void mostrarHUD(Player player, int gold)
+    Imprime: nome | classe, HP, Level, XP, Ouro
+
+  void mostrarClasseInfo(String classe, int hp, int ataque, String poder)
+    Exibe: classe, HP base, ataque base, nome do poder especial
+
+  void mostrarLevelUp(String nome, int level, int hp, int ataque)
+    Mensagem de level up
+
+
+  ===== PREPARACAO =====
+
+  void mostrarPreparacao()
+    Menu de 6 opcoes:
+      1. Avancar (combate da fase)
+      2. Explorar (farmar XP)
+      3. Descansar (cura 30 HP)
+      4. Loja
+      5. Usar pocao do inventario
+      6. Sair do jogo
+
+  void mostrarExploracao(int fase, int gold)
+    Menu de areas:
+      1. Floresta Sombria (Goblins)        -> sempre
+      2. Caverna dos Orcs (Orcs)           -> fase >= 2
+      3. Montanha Gelada (Bruxas)          -> fase >= 3
+      0. Voltar
+
+  void mostrarLoja(int gold)
+    Menu: pocao gratis / comprar 15 ouro / sair
+
+
+  ===== COMBATE =====
+
+  void mostrarAberturaCombate(String nomeInimigo)
+    ">>>>>>> COMBATE CONTRA <NOME> <<<<<<<"
+
+  void mostrarInimigoInfo(String nome, int hp, int ataque)
+    Exibe dados do inimigo ao aparecer
+
+  void mostrarStatusCombate(nomeJ, hpJ, maxJ, nomeE, hpE, maxE, turno)
+    Barras de HP lado a lado:
+      --- Turno X ------------------------
+      Jogador  HP: 80/100  [###########.....]
+      Inimigo  HP: 30/90   [#####............]
+      ---------------------------------
+
+  private String barra(int hp, int max, int tam)
+    Gera string tipo "[####....]" proporcional
+
+  void mostrarMenuCombate(String classe)
+    1. Atacar
+    2. <Poder Especial> - varia por classe
+    3. Usar Pocao
+    4. Fugir (50%)
+
+  void mostrarAtaque(String nome, int dano)
+    "<nome> atacou causando <dano> de dano!"
+
+  void mostrarAtaqueCritico(String nome, int dano)
+    "!!! <nome> acertou um GOLPE CRITICO causando <dano> de dano !!!"
+
+  void mostrarPoderUsado(String nomeClasse, String nomePoder, int dano)
+  void mostrarPoderFalhou()
+  void mostrouFugiu()
+  void mostrarNaoFugiu()
+  void mostrarUsouPocao(int cura)
+  void mostrarSemPocoes()
+  void mostrarNadaParaUsar()
+
+  void mostrarItemObtido(String nome)
+    "Voce encontrou: <nome>!"
+
+  void mostrarMensagem(String mensagem)
+    Print generico
+
+
+  ===== FIM DE JOGO =====
+
+  void mostrarVitoria()
+    "VITORIA! ... O reino esta salvo!"
+
+  void mostrarGameOver()
+    "GAME OVER ... O reino ainda precisa de um heroi."
+
+
+6. GameController (src/controller/GameController.java)
+======================================================
+
+  Orquestrador principal — maquina de estados que coordena todo o jogo.
+
+  ATRIBUTOS:
+    - model: GameModel
+    - gameView: GameView
+    - playerController: PlayerController
+    - playerView: PlayerView
+    - inventoryController: InventoryController
+    - inventoryView: InventoryView
+    - rodando: boolean
+    - pocaoGratisUsada: boolean
+
+  CONSTRUTOR:
+    GameController()
+      model = new GameModel()
+      gameView = new GameView()
+      rodando = true
+
+
+  ===== LOOP PRINCIPAL: iniciar() =====
+
+  while (rodando):
+      switch (model.getState()):
+          "MENU"       -> executarMenu()
+          "CRIAR"      -> executarCriacao()
+          "HISTORIA"   -> executarHistoria()
+          "PREPARACAO" -> executarPreparacao()
+          "COMBATE"    -> executarCombate()
+          "GAME_OVER"  -> executarGameOver()
+          "VITORIA"    -> executarVitoria()
+
+  FLUXO DE MAQUINA DE ESTADOS:
+    MENU -> CRIAR -> HISTORIA -> PREPARACAO <-> COMBATE
+                                     |          |
+                                     +-- EXPLORACAO
+                                     |
+                                     +--> GAME_OVER -> FIM
+                                     +--> VITORIA  -> FIM
+                                     +--> SAIR -> MENU
+
+
+  ===== 6.1 MENU =====
+
+  executarMenu()
+    gameView.mostrarMenu()
+    opcao = gameView.escolherOpcaoMenu()
+    se 1: model.setState("CRIAR")
+    senao: rodando = false
+
+
+  ===== 6.2 CRIAR PERSONAGEM =====
+
+  executarCriacao()
+    playerView = new PlayerView()
+    playerController = new PlayerController(playerView)
+    playerController.criarPersonagem()
+      -> pede nome, escolhe classe (1-3)
+      -> retorna Guerreiro/Mago/Arqueiro
+    model.setPlayer(player)
+    model.maxHp = player.getHp()
+    inventoryView = new InventoryView()
+    inventoryController = new InventoryController(player, inventoryView)
+    classe = player.getClass().getSimpleName()
+    poder = obterNomePoder(classe)
+    gameView.mostrarClasseInfo(classe, hpBase, atkBase, poder)
+    gameView.aguardar()
+    model.setState("HISTORIA")
+
+
+  ===== 6.3 HISTORIA =====
+
+  executarHistoria()
+    pocaoGratisUsada = false  (reseta loja para nova fase)
+    fase = model.getFase()
+    se fase == 1: gameView.mostrarHistoria()
+    senao: gameView.mostrarFaseInfo(fase)
+    gameView.aguardar()
+    model.setState("PREPARACAO")
+
+
+  ===== 6.4 PREPARACAO =====
+
+  executarPreparacao()
+    Verifica player.vivo() — se morto: state = "GAME_OVER"
+    gameView.mostrarHUD(player, gold)
+    Mostra "Fase X - Combate Y de Z" (Z=2 fases 1-3, Z=1 fase 4)
+    gameView.mostrarPreparacao()
+    opcao = gameView.escolherOpcao()
+
+    switch (opcao):
+      1 -> model.setState("COMBATE")
+      2 -> executarExploracao()
+      3 -> descansar: cura = min(30, maxHp - hpAtual)
+           se cura > 0: player.setHp(hp + cura), mensagem
+           senao: "HP ja no maximo"
+      4 -> executarLoja()
+      5 -> usarPocaoForaCombate()
+      6 -> rodando = false (volta menu)
+
+
+  ===== 6.5 EXPLORACAO (FARM) =====
+
+  executarExploracao()
+    Loop infinito:
+      gameView.mostrarExploracao(fase, gold)
+      escolha = gameView.escolherOpcao()
+      se 0: return (volta preparacao)
+      se invalida: mensagem, continua loop
+      areaIdx = escolha - 1
+      inimigo = gerarInimigoExploracao(areaIdx)
+      executarCombateExploracao(inimigo)
+      return
+
+  gerarInimigoExploracao(int areaIdx)
+    area 0 (Floresta): Goblin
+    area 1 (Caverna): 50% Goblin, 50% saqueador
+    area 2 (Montanha): 50% saqueador, 50% BruxaVerde
+
+  executarCombateExploracao(Enemy inimigo)
+    (MESMO LOOP que combate principal, com diferencas:)
+      XP = inimigo.getXpReward() * 1.5   (vs 3x do principal)
+      Gold = inimigo.getGoldReward() * 1.5
+      Drop pocao: 25% de chance (vs 30% principal)
+      NAO incrementa inimigosNestaFase
+      NAO afeta progressao de fases
+      Se fugiu: volta para preparacao
+      Se morto: GAME_OVER
+      Se venceu: ganha XP/gold, volta PREPARACAO
+
+
+  ===== 6.6 LOJA =====
+
+  executarLoja()
+    Loop infinito:
+      gameView.mostrarLoja(gold)
+      opcao = gameView.escolherOpcao()
+
+      se 1 (gratuita):
+        se !pocaoGratisUsada:
+            adiciona pocao ao inventario
+            pocaoGratisUsada = true
+        senao: "Ja te dei uma pocao hoje"
+
+      se 2 (paga):
+        se model.gastarGold(15):
+            adiciona pocao ao inventario
+        senao: "Ouro insuficiente"
+
+      se 3: break
+
+
+  ===== 6.7 POCAO FORA DE COMBATE =====
+
+  usarPocaoForaCombate()
+    Se inventario vazio: "Nenhum item"
+    InventoryController.mostrarInventario()
+    Usuario escolhe item (ou 0 cancela)
+    Se item == "Pocao de Vida":
+        cura = min(40, maxHp - hpAtual)
+        player.setHp(hp + cura)
+        remove item
+    Senao: "Nao pode ser usado agora"
+
+
+  ===== 6.8 COMBATE PRINCIPAL =====
+
+  executarCombate()
+    player = model.getPlayer()
+    fase = model.getFase()
+    inimigo = gerarInimigo(fase, combateAtual)
+    maxHpInimigo = obterMaxHpInimigo(inimigo)
+    maxHpPlayer = model.getMaxHp()
+    nivelAntes = player.getLevel()
+    classe = player.getClass().getSimpleName()
+    ehBoss = inimigo instanceof DragaoBoss
+
+    gameView.mostrarAberturaCombate()
+    gameView.mostrarInimigoInfo()
+    se boss: mensagem extra "DRAGAO CHEFE - A BATALHA FINAL!"
+
+    LOOP DE COMBATE INTERATIVO:
+        int turno = 0
+        boolean fugiu = false
+
+        while (player.vivo() && inimigo.vivo() && !fugiu):
+            turno++
+            mostrarStatusCombate()  (barras de HP)
+            mostrarMenuCombate()
+            acao = escolherOpcao()
+
+            switch (acao):
+              1 -> ATACAR
+                   critico = Math.random() < 0.15
+                   dano = critico ? atk*1.5 : atk
+                   inimigo.receberDano(dano)
+                   mostrarAtaque ou mostrarAtaqueCritico
+
+              2 -> PODER ESPECIAL
+                   usarPoderEspecial(player, inimigo)
+
+              3 -> USAR POCAO
+                   usarPocaoEmCombate(player)
+
+              4 -> FUGIR
+                   if Math.random() < 0.5:
+                       mostrouFugiu() -> fugiu = true
+                   else:
+                       mostrarNaoFugiu()
+
+            // Turno do inimigo
+            if inimigo.vivo() && !fugiu:
+                danoE = inimigo.getAtaque()
+                player.receberDano(danoE)
+                mostrarAtaque(inimigo.getNome(), danoE)
+
+
+  ===== 6.9 RESULTADO DO COMBATE =====
+
+  Apos loop:
+
+    if fugiu:
+        state = "PREPARACAO"
+        return
+
+    if !player.vivo():
+        state = "GAME_OVER"
+        return
+
+    // VITORIA
+    xpFinal = inimigo.getXpReward() * 3  (COMBATE PRINCIPAL)
+    goldFinal = inimigo.getGoldReward()
+    player.addXp(xpFinal)
+    model.addGold(goldFinal)
+    "Ganhou X XP e Y ouro"
+
+    if nivel > nivelAntes:
+        model.maxHp += 20
+        mostrarLevelUp()
+
+    drop = Math.random() < 0.3 (30% no principal)
+    se drop: adiciona pocao ao inventario
+
+    model.incrementarInimigos()  (total geral)
+
+    gerenciarProgressao(inimigo, ehBoss)
+
+
+  ===== 6.10 PROGRESSAO =====
+
+  gerenciarProgressao(inimigo, ehBoss)
+    if ehBoss:
+        state = "VITORIA"    # FIM DE JOGO
+        return
+
+    model.incrementarInimigosNaFase()
+    necessarios = (fase <= 3) ? 2 : 1
+
+    if inimigosNestaFase >= necessarios:
+        print "=== FASE X COMPLETA! ==="
+        if fase >= 4:
+            state = "VITORIA"
+        else:
+            model.setFase(fase + 1)  (reseta contagem)
+            state = "HISTORIA"       (proxima fase)
+    else:
+        state = "PREPARACAO"         (mais combates)
+
+
+  TABELA DE FASES:
+    Fase 1: Floresta Sombria -> Goblin (HP 40, ATK30)        -> 2 vitorias
+    Fase 2: Caverna dos Orcs -> Goblin/saqueador (90HP/18ATK) -> 2 vitorias
+    Fase 3: Montanha Gelada  -> saqueador/BruxaVerde(70/22)   -> 2 vitorias
+    Fase 4: Pico do Dragao   -> DragaoBoss (250HP/40ATK)      -> 1 vitoria
+    Fim:   VITORIA
+
+
+  ===== 6.11 PODER ESPECIAL =====
+
+  obterNomePoder(String classe)
+    "Guerreiro" -> "Golpe Pesado"
+    "Mago"      -> "Bola de Fogo"
+    "Arqueiro"  -> "Tiro Certeiro"
+
+  usarPoderEspecial(Player, Enemy)
+    Guerreiro: atk*2, 65% acerto, 35% erro
+    Mago:      atk*1.8, 100% acerto
+    Arqueiro:  atk*1.5, 100% acerto
+
+
+  ===== 6.12 POCAO EM COMBATE =====
+
+  usarPocaoEmCombate(Player)
+    Itera inventario procurando "Pocao de Vida"
+    Se achar: cura = min(40, maxHp - hpAtual)
+              hp += cura, remove item, mostra mensagem
+              return true
+    Senao: mostrarSemPocoes(), return false
+
+
+  ===== 6.13 GERACAO DE INIMIGOS =====
+
+  gerarInimigo(int fase, int combateAtual)
+    Fase 1: Goblin
+    Fase 2: 50% Goblin, 50% saqueador
+    Fase 3: 50% saqueador, 50% BruxaVerde
+    Fase 4: DragaoBoss
+
+  obterMaxHpInimigo(Enemy e)
+    Goblin     -> 40
+    saqueador  -> 90
+    BruxaVerde -> 70
+    DragaoBoss -> 250
+
+
+  ===== 6.14 GAME OVER / VITORIA =====
+
+  executarGameOver()
+    gameView.mostrarGameOver()
+    aguardar(), rodando = false
+
+  executarVitoria()
+    gameView.mostrarVitoria()
+    mostrarHUD(player, gold)
+    "Inimigos derrotados: X"
+    aguardar(), rodando = false
+
+
+===========================================================================
+  RESUMO DO FLUXO COMPLETO (TEXTO)
+===========================================================================
+
+  1. [MENU] -> 1. Novo Jogo
+  2. [CRIAR] -> Escolhe nome + classe (Guerreiro/Mago/Arqueiro)
+  3. [HISTORIA] -> Texto introdutorio / texto da fase
+  4. [PREPARACAO] -> Loop central com 6 opcoes
+  5. [COMBATE] -> Loop de turnos (Atacar/Poder/Pocao/Fugir)
+  6. Resultado:
+       Venceu -> XP*3, gold, 30% drop pocao, progressao de fase
+       Fugiu  -> volta PREPARACAO
+       Morreu -> GAME OVER
+  7. Progressao de fases: 2 vitorias por fase (1-3), 1 no boss
+  8. Fase 4 completa (boss): VITORIA
+  9. FIM
+
+
+===========================================================================
+  DIFERENCAS ENTRE COMBATE PRINCIPAL E EXPLORACAO
+===========================================================================
+
+  CARACTERISTICA      | COMBATE PRINCIPAL     | EXPLORACAO
+  --------------------+-----------------------+-------------------------
+  Multiplicador XP    | * 3                   | * 1.5
+  Multiplicador Gold  | * 1                   | * 1.5
+  Drop pocao          | 30%                   | 25%
+  Progressao fase     | Sim (incrementa)      | Nao
+  Fuga desincorportada| Sim (volta PREP)      | Sim (volta PREP)
+  Morte               | GAME OVER             | GAME OVER
+
+
+===========================================================================
+  ATRIBUTOS COMPLETOS DE GameController
+===========================================================================
+
+  model             -> GameModel (estado global)
+  gameView          -> GameView (interface)
+  playerController  -> PlayerController (criacao do personagem)
+  playerView        -> PlayerView (view de criacao)
+  inventoryController -> InventoryController (itens)
+  inventoryView     -> InventoryView (view de itens)
+  rodando           -> boolean (controla o loop principal)
+  pocaoGratisUsada  -> boolean (resetada a cada fase na historia)
+
+
+===========================================================================
+  ESTATISTICAS BASE POR CLASSE
+===========================================================================
+
+  CLASSE     | HP  | ATK | PODER       | DANO   | ACERTO
+  -----------+-----+-----+-------------+--------+-------
+  Guerreiro  | 150 | 20  | Golpe Pesado| atk*2  | 65%
+  Mago       | 80  | 30  | Bola de Fogo| atk*1.8| 100%
+  Arqueiro   | 100 | 25  | Tiro Certeiro| atk*1.5| 100%
+
+  Level Up: +20 HP, +5 ATK, +20 maxHp a cada 100 XP
+
+
+===========================================================================
+  FIM DO DOCUMENTO
+===========================================================================

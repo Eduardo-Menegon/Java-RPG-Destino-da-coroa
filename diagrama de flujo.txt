@@ -1,0 +1,602 @@
+===========================================================================
+  DIAGRAMA DE FLUJO — DESTINO DA COROA
+===========================================================================
+
+  LEGENDA:
+  [STATE] = Estado do GameModel (maquina de estados)
+  {METODO} = Metodo executado no GameController
+  (DECISAO) = Escolha do jogador / condicao
+  -> = transicao entre estados/modos
+
+
+===========================================================================
+  1. FLUXO PRINCIPAL (GERAL)
+===========================================================================
+
+                    [INICIO]
+                       |
+                       v
+                  [MENU]  <-----------------------+
+                       |                          |
+                 (Novo Jogo?)                     |
+                 /        \                      |
+                Sim       Nao                    |
+                |          |                     |
+                v          v                     |
+           [CRIAR]      FIM DO JOGO              |
+                |                                |
+                v                                |
+           [HISTORIA]                            |
+                |                                |
+                v                                |
+          [PREPARACAO] ------ (Sair)? -----------+
+                |
+           (Escolha)
+         /  |   |   |   \
+        1   2   3   4   5
+        |   |   |   |   |
+        |   |   |   |   +--> Sair -> [MENU]
+        |   |   |   |
+        |   |   |   +------> {usarPocaoForaCombate} -> volta [PREPARACAO]
+        |   |   |
+        |   |   +----------> {executarLoja} -> volta [PREPARACAO]
+        |   |
+        |   +--------------> {executarExploracao} -> combate de farming
+        |                              |
+        |                    (apos combate ou fuga)
+        |                              |
+        |                    volta [PREPARACAO] (se vivo)
+        |                    ou [GAME_OVER] (se morto)
+        |
+        +------------------> [COMBATE] (fase obrigatoria)
+                                   |
+                              (apos combate)
+                              /             \
+                        Venceu            Morreu
+                           |                 |
+                      {gerenciarProgressao}  v
+                           |           [GAME_OVER]
+                      /    |    \            |
+                    Fase  Fase  Boss         v
+                    OK?  Completa?       FIM DO JOGO
+                    /      |      \
+                  Nao     Sim      Sim (Boss)
+                   |       |         |
+                   v       v         v
+            [PREPARACAO] [HISTORIA] [VITORIA]
+                  (prox. fase)        |
+                                      v
+                                  FIM DO JOGO
+
+
+===========================================================================
+  2. ESTADO MENU
+===========================================================================
+
+  [MENU] -> {executarMenu()}
+              |
+              v
+         gameView.mostrarMenu()
+              |
+              v
+         escolherOpcaoMenu()
+              |
+           /     \
+          1       2
+          |       |
+          v       v
+    state =   rodando = false
+    "CRIAR"   (sai do jogo)
+
+  TELA MOSTRADA:
+    ========================================
+        DESTINO DA COROA
+    ========================================
+    1. Novo Jogo
+    2. Sair
+    ========================================
+
+
+===========================================================================
+  3. ESTADO CRIAR (CRIACAO DO PERSONAGEM)
+===========================================================================
+
+  [CRIAR] -> {executarCriacao()}
+               |
+               v
+          new PlayerView()
+          new PlayerController(view)
+               |
+               v
+          playerController.criarPersonagem()
+               |
+               +---> pedirNome() -> le nome do usuario
+               +---> escolherClasse() -> le classe (1-3)
+               |
+               v
+          switch(classe):
+            1 -> Guerreiro(nome)  [HP 150, ATK 20]
+            2 -> Mago(nome)       [HP 80,  ATK 30]
+            3 -> Arqueiro(nome)   [HP 100, ATK 25]
+               |
+               v
+          model.setPlayer(player)
+          model.maxHp = player.getHp()
+               |
+               v
+          new InventoryView()
+          new InventoryController(player, view)
+               |
+               v
+          gameView.mostrarClasseInfo()
+          (mostra nome, HP base, ATK base, poder especial)
+               |
+               v
+          state = "HISTORIA"
+
+
+===========================================================================
+  4. ESTADO HISTORIA
+===========================================================================
+
+  [HISTORIA] -> {executarHistoria()}
+                  |
+                  v
+             pocaoGratisUsada = false
+                  |
+                  v
+          if fase == 1:
+             gameView.mostrarHistoria() -> texto introdutorio
+          else:
+             gameView.mostrarFaseInfo(fase) -> texto da fase atual
+                  |
+                  v
+             gameView.aguardar() ("Pressione Enter...")
+                  |
+                  v
+             state = "PREPARACAO"
+
+  FASES E TEXTOS:
+    Fase 1: "FLORESTA SOMBRIA" - Introducao + floresta
+    Fase 2: "CAVERNA DOS ORCS" - Atras da floresta
+    Fase 3: "MONTANHA GELADA"  - Cada vez mais perto do Dragao
+    Fase 4: "PICO DO DRAGAO"   - Batalha final!
+
+
+===========================================================================
+  5. ESTADO PREPARACAO (CENTRAL DO JOGO)
+===========================================================================
+
+  [PREPARACAO] -> {executarPreparacao()}
+                    |
+                    v
+               Verifica se player.vivo()
+                    |
+                    v
+               gameView.mostrarHUD(player, gold)
+               (mostra status do jogador)
+                    |
+                    v
+               Mostra "Fase X - Combate Y de Z"
+                    |
+                    v
+               gameView.mostrarPreparacao()
+                    |
+                    v
+               escolherOpcao()
+
+  MENU DE PREPARACAO:
+    === O QUE DESEJA FAZER? ===
+    1. Avancar (combate da fase)  -> [COMBATE]
+    2. Explorar (farmar XP)       -> {executarExploracao}
+    3. Descansar (cura 30 HP)
+    4. Loja
+    5. Usar pocao do inventario
+    6. Sair do jogo               -> volta ao [MENU]
+
+
+  5.1 OPCAO 3: DESCANSAR
+  -----------------------
+  {executarPreparacao() -> case 3}
+       |
+       v
+  cura = min(30, maxHp - hpAtual)
+       |
+  if cura > 0:
+      player.setHp(hp + cura)
+      print "Recuperou X HP"
+  else:
+      print "HP ja no maximo"
+       |
+       v
+  volta [PREPARACAO]
+
+
+  5.2 OPCAO 4: LOJA
+  ------------------
+  {executarLoja()}
+       |
+       v
+  gameView.mostrarLoja(gold)
+
+  ==== LOJA ====
+  1. Pocao de Vida (gratuita) - 1 por fase
+  2. Comprar pocao extra - 15 de ouro
+  3. Sair
+  ===============
+
+  Opcao 1: Se pocaoGratisUsada == false
+             -> adiciona pocao ao inventario
+             -> pocaoGratisUsada = true
+           Senao:
+             -> "Ja te dei uma pocao hoje"
+
+  Opcao 2: Se model.gastarGold(15) == true
+             -> adiciona pocao ao inventario
+             -> "Comprou pocao por 15 de ouro"
+           Senao:
+             -> "Ouro insuficiente"
+
+
+  5.3 OPCAO 5: USAR POCAO
+  ------------------------
+  {usarPocaoForaCombate()}
+       |
+       v
+  Se inventario vazio -> print "Nenhum item"
+       |
+       v
+  inventoryController.mostrarInventario()
+  (mostra todos os itens)
+       |
+       v
+  Usuario digita numero do item (ou 0 cancela)
+       |
+       v
+  Se item.getNome() == "Pocao de Vida":
+      cura = min(40, maxHp - hpAtual)
+      player.setHp(hp + cura)
+      inventoryController.removerItem(index)
+      print "Usou pocao, recuperou X HP"
+  Senao:
+      print "Item nao pode ser usado"
+
+
+===========================================================================
+  6. ESTADO EXPLORACAO (FARM)
+===========================================================================
+
+  {executarExploracao()}
+       |
+       v
+  gameView.mostrarExploracao(fase, gold)
+
+  === ESCOLHA UMA AREA ===
+  1. Floresta Sombria (Goblins)    - sempre disponivel
+  2. Caverna dos Orcs (Orcs)       - se fase >= 2
+  3. Montanha Gelada (Bruxas)      - se fase >= 3
+  0. Voltar
+  ==========================
+
+       |
+       v
+  Usuario escolhe area (ou 0 = volta)
+       |
+       v
+  Valida: escolha >= 1 AND escolha <= fase (e <= 3 na fase 4)
+       |
+       v
+  Enemy inimigo = gerarInimigoExploracao(areaIdx)
+       |
+       v
+  {executarCombateExploracao(inimigo)}
+
+  GERACAO DE INIMIGOS (EXPLORACAO):
+    Area 0 (Floresta):     Goblin
+    Area 1 (Caverna):      Goblin (50%) ou saqueador (50%)
+    Area 2 (Montanha):     saqueador (50%) ou BruxaVerde (50%)
+
+  COMBATE DE EXPLORACAO:
+    - Mesmo sistema de combate interativo (Atacar/Poder/Pocao/Fugir)
+    - XP multiplicado por 1.5x (menor que o combate principal)
+    - Nao conta para progressao da fase (inimigosNestaFase nao incrementa)
+    - Pode dropar pocao (25% de chance)
+    - Se fugir -> volta ao menu de exploracao
+    - Se morrer -> GAME OVER
+    - Se vencer -> volta [PREPARACAO]
+
+
+===========================================================================
+  7. ESTADO COMBATE (PRINCIPAL)
+===========================================================================
+
+  [COMBATE] -> {executarCombate()}
+                 |
+                 v
+            Enemy inimigo = gerarInimigo(fase, combateAtual)
+                 |
+  GERACAO POR FASE:
+    Fase 1: Goblin (HP 40, ATK 30, XP 10, Gold 15)
+    Fase 2: Goblin (50%) ou saqueador (50%)
+            (HP 40/90, ATK 30/18, XP 10/30, Gold 15/50)
+    Fase 3: saqueador (50%) ou BruxaVerde (50%)
+            (HP 90/70, ATK 18/22, XP 30/35, Gold 50/60)
+    Fase 4: DragaoBoss (HP 250, ATK 40, XP 150, Gold 300)
+                 |
+                 v
+            gameView.mostrarAberturaCombate()
+            gameView.mostrarInimigoInfo()
+                 |
+                 v
+            LOOP DE COMBATE:
+            while (player.vivo() && inimigo.vivo() && !fugiu) {
+
+                turno++
+                mostrarStatusCombate()  <- barras de HP lado a lado
+                mostrarMenuCombate()    <- escolhe acao
+
+                switch (acao):
+                  1 -> ATACAR
+                  2 -> PODER ESPECIAL
+                  3 -> USAR POCAO
+                  4 -> FUGIR (50%)
+
+                if (inimigo.vivo() && !fugiu):
+                    inimigo.ataca jogador
+            }
+
+
+  7.1 ACAO 1: ATACAR
+  -------------------
+  critico = Math.random() < 0.15 (15% de chance)
+
+  Se critico:
+      dano = ataque * 1.5
+      mostra "GOLPE CRITICO!"
+  Senao:
+      dano = ataque
+      mostra "atacou causando X dano"
+
+  inimigo.receberDano(dano)
+
+
+  7.2 ACAO 2: PODER ESPECIAL (por classe)
+  ----------------------------------------
+  GUERREIRO -> "Golpe Pesado"
+      Acerta em 65% das vezes
+      dano = ataque * 2
+      Se errar: "O poder especial errou o alvo!"
+
+  MAGO -> "Bola de Fogo"
+      Sempre acerta
+      dano = ataque * 1.8
+
+  ARQUEIRO -> "Tiro Certeiro"
+      Sempre acerta
+      dano = ataque * 1.5
+
+
+  7.3 ACAO 3: USAR POCAO
+  -----------------------
+  Procura no inventario o primeiro item "Pocao de Vida"
+  Se encontrar:
+      cura = min(40, maxHp - hpAtual)
+      player.setHp(hp + cura)
+      inventoryController.removerItem(indice)
+      mostra "Usou pocao, recuperou X HP"
+  Senao:
+      mostra "Nao tem pocoes"
+  (O inimigo ataca normalmente depois)
+
+
+  7.4 ACAO 4: FUGIR
+  ------------------
+  50% de chance de sucesso:
+      Se sucesso: fugiu = true
+                  mostra "Conseguiu fugir!"
+                  -> volta para [PREPARACAO]
+      Se falha:  mostra "Nao conseguiu fugir!"
+                  -> inimigo ataca
+
+
+===========================================================================
+  8. POS-COMBATE (RESULTADO)
+===========================================================================
+
+  APOS O LOOP DE COMBATE:
+
+  8.1 SE FUGIU:
+  --------------
+  state = "PREPARACAO"
+  (volta a preparacao sem recompensas nem progresso)
+
+
+  8.2 SE JOGADOR MORREU:
+  ----------------------
+  state = "GAME_OVER"
+  (fim de jogo)
+
+
+  8.3 SE VENCEU O COMBATE:
+  ------------------------
+  Recompensas (COMBATE PRINCIPAL):
+      xpFinal = inimigo.getXpReward() * 3   <- 3x mais rapido
+      goldFinal = inimigo.getGoldReward()
+      player.addXp(xpFinal)
+      model.addGold(goldFinal)
+
+  Level Up:
+      Se player.getLevel() > nivelAntes:
+          model.maxHp += 20
+          mostra "Subiu para nivel X! HP+20, ATK+5"
+
+  Drop de pocao:
+      30% de chance:
+          inventoryController.adicionarItem("Pocao de Vida", "...")
+          mostra "Voce encontrou: Pocao de Vida!"
+
+  model.incrementarInimigos() (total de inimigos)
+
+       |
+       v
+  {gerenciarProgressao(inimigo, ehBoss)}
+
+
+===========================================================================
+  9. GERENCIAR PROGRESSAO
+===========================================================================
+
+  {gerenciarProgressao(inimigo, ehBoss)}
+
+  if ehBoss (inimigo instanceof DragaoBoss):
+      state = "VITORIA"
+      return
+
+  model.incrementarInimigosNaFase()
+  necessarios = (fase <= 3) ? 2 : 1
+
+  if inimigosNestaFase >= necessarios:
+      print "=== FASE X COMPLETA! ==="
+      if fase >= 4:
+          state = "VITORIA"
+      else:
+          model.setFase(fase + 1)    <- reseta contagem
+          state = "HISTORIA"          <- mostra proxima fase
+  else:
+      state = "PREPARACAO"           <- mais combates na fase
+
+
+  TABELA DE PROGRESSAO:
+  ---------+------------+-------------------+---------------------
+   Fase    | Local      | Inimigos          | Vitorias necessarias
+  ---------+------------+-------------------+---------------------
+     1     | Floresta   | Goblins (faceis)  | 2
+     2     | Caverna    | Orcs (medios)     | 2
+     3     | Montanha   | Bruxas (dificeis) | 2
+     4     | Pico       | DRAGAO BOSS       | 1
+  ---------+------------+-------------------+---------------------
+
+
+===========================================================================
+  10. GAME OVER / VITORIA
+===========================================================================
+
+  [GAME_OVER] -> {executarGameOver()}
+                   |
+                   v
+              gameView.mostrarGameOver()
+              "Voce caiu em batalha... O reino ainda precisa de um heroi."
+                   |
+                   v
+              aguardar() + rodando = false
+                   |
+                   v
+              FIM DO JOGO
+
+
+  [VITORIA] -> {executarVitoria()}
+                 |
+                 v
+            gameView.mostrarVitoria()
+            "Voce derrotou o Dragao Chefe e recuperou a Coroa do Destino!"
+                 |
+                 v
+            gameView.mostrarHUD(player, gold) <- stats finais
+            print "Inimigos derrotados: X"
+                 |
+                 v
+            aguardar() + rodando = false
+                 |
+                 v
+            FIM DO JOGO
+
+
+===========================================================================
+  11. MODELOS UTILIZADOS
+===========================================================================
+
+  MODEL            | PACOTE    | FUNCAO
+  -----------------+-----------+--------------------------------------
+  GameModel        | model     | Estado global, fase, gold, maxHp
+  Player           | model     | Jogador (HP, ATK, XP, level, ouro)
+  Character        | model     | Classe base abstrata
+  Guerreiro        | model     | Subclasse: HP 150, ATK 20
+  Mago             | model     | Subclasse: HP 80, ATK 30
+  Arqueiro         | model     | Subclasse: HP 100, ATK 25
+  Enemy            | model     | Classe base de inimigo
+  Goblin           | model     | Inimigo facil: HP 40, ATK 30
+  saqueador        | model     | Inimigo medio: HP 90, ATK 18
+  BruxaVerde       | model     | Inimigo dificil: HP 70, ATK 22
+  DragaoBoss       | model     | Boss final: HP 250, ATK 40
+  Combat           | model     | Par (Player + Enemy)
+  MapModel         | model     | Areas do mapa (nao usado no Game atual)
+  InventoryController.Item | controller | Item com nome + descricao
+
+  VIEW             | PACOTE    | FUNCAO
+  -----------------+-----------+--------------------------------------
+  GameView         | view      | Menu, historia, HUD, combate, loja
+  PlayerView       | view      | Criacao de personagem (nome/classe)
+  InventoryView    | view      | Exibicao do inventario
+  CombatView       | view      | Status do combate (usado internamente)
+
+  CONTROLLER       | PACOTE    | FUNCAO
+  -----------------+-----------+--------------------------------------
+  GameController   | controller| Orquestrador principal DO JOGO
+  PlayerController | controller| Criacao e gerenciamento do player
+  InventoryController | controller| Gerenciamento de itens
+  MapController    | controller| Navegacao no mapa
+
+
+===========================================================================
+  12. SISTEMA DE ECONOMIA
+===========================================================================
+
+  GOLD: Rastreado no GameModel (NAO no Player)
+        - Adquirido ao derrotar inimigos
+        - Gasto na loja (15 de ouro por pocao extra)
+
+  POCAO DE VIDA:
+        - Cura 40 HP
+        - 1 gratuita por fase na loja
+        - 15 de ouro por pocao extra
+        - Drop de 30% apos combate principal
+        - Drop de 25% apos combate de exploracao
+
+  XP:   Dado ao jogador via player.addXp()
+        - Combate principal: xpReward * 3
+        - Exploracao: xpReward * 1.5
+        - Level up a cada 100 XP
+        - Level up: HP+20, ATK+5, maxHp+20
+
+
+===========================================================================
+  13. RESUMO DO FLUXO COMPLETO (TEXTO)
+===========================================================================
+
+  1. JOGO INICIA -> Menu principal
+  2. "Novo Jogo" -> Cria personagem (nome + classe)
+  3. Historia -> Mostra texto introdutorio
+  4. PREPARACAO -> Loop central:
+     a. Avancar: luta contra inimigo da fase atual
+     b. Explorar: escolhe area para farmar XP
+     c. Descansar: cura 30 HP gratis
+     d. Loja: pocao gratis ou comprar por 15 ouro
+     e. Usar pocao do inventario
+     f. Sair
+  5. COMBATE -> Loop de turnos (Atacar/Poder/Pocao/Fugir)
+  6. POS-COMBATE:
+     - Venceu: recompensas (XP 3x, gold, drop pocao)
+     - Morreu: GAME OVER
+     - Fugiu: volta preparacao
+  7. Progressao:
+     - Fase 1: 2 vitorias -> Fase 2
+     - Fase 2: 2 vitorias -> Fase 3
+     - Fase 3: 2 vitorias -> Fase 4
+     - Fase 4: 1 vitoria (boss) -> VITORIA FINAL
+  8. VITORIA: tela de fim com stats
+     GAME OVER: tela de derrota
+
+
+===========================================================================
+  FIM DO DIAGRAMA
+===========================================================================
