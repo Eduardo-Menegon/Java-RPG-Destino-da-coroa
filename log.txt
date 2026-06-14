@@ -1,0 +1,1 @@
+[14/06/2026 20:05:33]Personagem criado: eduardo | Classe: class model.Mago

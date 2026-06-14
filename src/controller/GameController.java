@@ -60,37 +60,6 @@ public class GameController {
         }
     }
 
-    // ==================== INVENTARIO ====================
-
-   /* private void executarInventario() {
-        List<Item> itens = inventario.listarTodos();
-
-        if (itens.isEmpty()) {
-            gameView.mostrarMensagem("Seu inventario esta vazio.");
-            gameView.aguardar();
-            return;
-        }
-
-        while (true) {
-            gameView.mostrarMensagem("\n=== INVENTARIO ===");
-            inventarioView.exibirLista(itens);
-            gameView.mostrarMensagem("\n1 - Usar item");
-            gameView.mostrarMensagem("0 - Voltar");
-
-            int opcao = gameView.escolherOpcao();
-
-            if (opcao == 0) break;
-
-            if (opcao == 1) {
-                usarPocaoForaCombate();
-                itens = inventario.listarTodos(); // atualiza lista após usar
-            } else {
-                gameView.mostrarMensagem("Opcao invalida.");
-            }
-
-            gameView.aguardar();
-        }
-    }*/
 
     // ==================== MENU ====================
 
@@ -375,48 +344,6 @@ public class GameController {
         }
     }
 
-    // ==================== USAR POCAO FORA DE COMBATE ====================
-
-    /*private void usarPocaoForaCombate() {
-        List<Item> itens = inventario.listarTodos();
-
-        if (itens.isEmpty()) {
-            gameView.mostrarMensagem("Nenhum item no inventario.");
-            return;
-        }
-
-        inventarioView.exibirLista(itens);
-        gameView.mostrarMensagem("Digite o numero do item para usar (ou 0 para cancelar):");
-        int escolha = gameView.escolherOpcao();
-
-        if (escolha <= 0 || escolha > itens.size()) {
-            gameView.mostrarMensagem("Cancelado.");
-            return;
-        }
-
-        int index = escolha - 1;
-        Item item = itens.get(index);
-
-        if (item == null) {
-            gameView.mostrarMensagem("Item invalido.");
-            return;
-        }
-
-        if (item.getNome().equals("Pocao de Vida")) {
-            Player player = model.getPlayer();
-            int cura = Math.min(40, model.getMaxHp() - player.getHp());
-
-            if (cura > 0) {
-                player.setHp(player.getHp() + cura);
-                inventario.removerItem(item.getId());
-                gameView.mostrarMensagem("Voce usou uma Pocao de Vida e recuperou " + cura + " HP!");
-            } else {
-                gameView.mostrarMensagem("Seu HP ja esta no maximo.");
-            }
-        } else {
-            gameView.mostrarMensagem("Este item nao pode ser usado agora.");
-        }
-    }*/
 
     // ==================== COMBATE ====================
 
