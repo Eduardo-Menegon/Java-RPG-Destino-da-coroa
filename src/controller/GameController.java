@@ -3,14 +3,16 @@ package controller;
 import model.*;
 import view.*;
 
+import java.util.List;
+
 public class GameController {
 
     private GameModel model;
     private GameView gameView;
     private PlayerController playerController;
     private PlayerView playerView;
-    private InventoryController inventoryController;
-    private InventoryView inventoryView;
+    private Inventario inventario;
+    private InventarioView inventarioView;
     private boolean rodando;
     private boolean pocaoGratisUsada;
 
@@ -78,8 +80,8 @@ public class GameController {
         Player player = playerController.getPlayer();
         model.setPlayer(player);
 
-        inventoryView = new InventoryView();
-        inventoryController = new InventoryController(player, inventoryView);
+        inventario = new Inventario(player.getNome(), 50.0);
+        inventarioView = new InventarioView();
 
         String classe = player.getClass().getSimpleName();
         int hpBase = player.getHp();
@@ -291,7 +293,7 @@ public class GameController {
         }
 
         if (Math.random() < 0.25) {
-            inventoryController.adicionarItem("Pocao de Vida", "Recupera 40 de HP");
+            inventario.adicionarItem("Pocao de Vida", "Recupera 40 de HP", 1, 0.5);
             gameView.mostrarItemObtido("Pocao de Vida");
         }
 
@@ -307,7 +309,7 @@ public class GameController {
 
             if (opcao == 1) {
                 if (!pocaoGratisUsada) {
-                    inventoryController.adicionarItem("Pocao de Vida", "Recupera 40 de HP");
+                    inventario.adicionarItem("Pocao de Vida", "Recupera 40 de HP", 1, 0.5);
                     gameView.mostrarMensagem("O ferreiro lhe entrega uma Pocao de Vida gratuita!");
                     pocaoGratisUsada = true;
                 } else {
@@ -316,7 +318,7 @@ public class GameController {
                 gameView.aguardar();
             } else if (opcao == 2) {
                 if (model.gastarGold(15)) {
-                    inventoryController.adicionarItem("Pocao de Vida", "Recupera 40 de HP");
+                    inventario.adicionarItem("Pocao de Vida", "Recupera 40 de HP", 1, 0.5);
                     gameView.mostrarMensagem("Voce comprou uma Pocao de Vida por 15 de ouro!");
                 } else {
                     gameView.mostrarMensagem("Ouro insuficiente! Uma pocao extra custa 15 de ouro.");
@@ -331,24 +333,24 @@ public class GameController {
     // ==================== USAR POCAO FORA DE COMBATE ====================
 
     private void usarPocaoForaCombate() {
-        int qtd = inventoryController.getQuantidadeItens();
+        List<Item> itens = inventario.listarTodos();
 
-        if (qtd == 0) {
+        if (itens.isEmpty()) {
             gameView.mostrarMensagem("Nenhum item no inventario.");
             return;
         }
 
-        inventoryController.mostrarInventario();
+        inventarioView.exibirLista(itens);
         gameView.mostrarMensagem("Digite o numero do item para usar (ou 0 para cancelar):");
         int escolha = gameView.escolherOpcao();
 
-        if (escolha <= 0 || escolha > qtd) {
+        if (escolha <= 0 || escolha > itens.size()) {
             gameView.mostrarMensagem("Cancelado.");
             return;
         }
 
         int index = escolha - 1;
-        InventoryController.Item item = inventoryController.getItem(index);
+        Item item = itens.get(index);
 
         if (item == null) {
             gameView.mostrarMensagem("Item invalido.");
@@ -361,7 +363,7 @@ public class GameController {
 
             if (cura > 0) {
                 player.setHp(player.getHp() + cura);
-                inventoryController.removerItem(index);
+                inventario.removerItem(item.getId());
                 gameView.mostrarMensagem("Voce usou uma Pocao de Vida e recuperou " + cura + " HP!");
             } else {
                 gameView.mostrarMensagem("Seu HP ja esta no maximo.");
@@ -484,7 +486,7 @@ public class GameController {
         }
 
         if (Math.random() < 0.3) {
-            inventoryController.adicionarItem("Pocao de Vida", "Recupera 40 de HP");
+            inventario.adicionarItem("Pocao de Vida", "Recupera 40 de HP", 1, 0.5);
             gameView.mostrarItemObtido("Pocao de Vida");
         }
 
@@ -556,13 +558,13 @@ public class GameController {
     // ==================== POCAO EM COMBATE ====================
 
     private boolean usarPocaoEmCombate(Player player) {
-        for (int i = 0; i < inventoryController.getQuantidadeItens(); i++) {
-            InventoryController.Item item = inventoryController.getItem(i);
-            if (item != null && item.getNome().equals("Pocao de Vida")) {
+        List<Item> itens = inventario.listarTodos();
+        for (Item item : itens) {
+            if (item.getNome().equals("Pocao de Vida")) {
                 int cura = Math.min(40, model.getMaxHp() - player.getHp());
                 if (cura > 0) {
                     player.setHp(player.getHp() + cura);
-                    inventoryController.removerItem(i);
+                    inventario.removerItem(item.getId());
                     gameView.mostrarUsouPocao(cura);
                     return true;
                 } else {
