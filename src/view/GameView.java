@@ -117,8 +117,9 @@ public class GameView {
         System.out.println("2. Explorar (farmar XP)");
         System.out.println("3. Descansar (cura 30 HP)");
         System.out.println("4. Loja");
-        System.out.println("5. Usar pocao do inventario");
-        System.out.println("6. Sair do jogo");
+        System.out.println("5. Usar Inventario");
+        System.out.println("6. Ver Historico de Logs");
+        System.out.println("7. Sair do jogo");
         System.out.println("===========================");
     }
 

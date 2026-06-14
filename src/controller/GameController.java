@@ -2,6 +2,7 @@ package controller;
 
 import model.*;
 import view.*;
+import util.Log;
 
 import java.util.List;
 
@@ -15,6 +16,8 @@ public class GameController {
     private InventarioView inventarioView;
     private boolean rodando;
     private boolean pocaoGratisUsada;
+    private InventarioController inventarioController;
+    private LogController logController = new LogController();
 
     public GameController() {
         this.model = new GameModel();
@@ -57,6 +60,38 @@ public class GameController {
         }
     }
 
+    // ==================== INVENTARIO ====================
+
+   /* private void executarInventario() {
+        List<Item> itens = inventario.listarTodos();
+
+        if (itens.isEmpty()) {
+            gameView.mostrarMensagem("Seu inventario esta vazio.");
+            gameView.aguardar();
+            return;
+        }
+
+        while (true) {
+            gameView.mostrarMensagem("\n=== INVENTARIO ===");
+            inventarioView.exibirLista(itens);
+            gameView.mostrarMensagem("\n1 - Usar item");
+            gameView.mostrarMensagem("0 - Voltar");
+
+            int opcao = gameView.escolherOpcao();
+
+            if (opcao == 0) break;
+
+            if (opcao == 1) {
+                usarPocaoForaCombate();
+                itens = inventario.listarTodos(); // atualiza lista após usar
+            } else {
+                gameView.mostrarMensagem("Opcao invalida.");
+            }
+
+            gameView.aguardar();
+        }
+    }*/
+
     // ==================== MENU ====================
 
     private void executarMenu() {
@@ -82,6 +117,12 @@ public class GameController {
 
         inventario = new Inventario(player.getNome(), 50.0);
         inventarioView = new InventarioView();
+
+        inventario = new Inventario(player.getNome(), 50.0);
+        inventarioView = new InventarioView();
+        inventarioController = new InventarioController(inventario);
+
+        Log.registar("Personagem criado: " + player.getNome() + " | Classe: " + player.getClass());
 
         String classe = player.getClass().getSimpleName();
         int hpBase = player.getHp();
@@ -156,11 +197,14 @@ public class GameController {
                 break;
 
             case 5:
-                usarPocaoForaCombate();
-                gameView.aguardar();
+                inventarioController.iniciarNoJogo();
                 break;
 
             case 6:
+                logController.iniciar();
+                break;
+
+            case 7:
                 gameView.mostrarMensagem("Saindo do jogo...");
                 rodando = false;
                 break;
@@ -320,6 +364,7 @@ public class GameController {
                 if (model.gastarGold(15)) {
                     inventario.adicionarItem("Pocao de Vida", "Recupera 40 de HP", 1, 0.5);
                     gameView.mostrarMensagem("Voce comprou uma Pocao de Vida por 15 de ouro!");
+                    Log.registar("Item comprado: Pocao de Vida | Gold restante: " + model.getGold());
                 } else {
                     gameView.mostrarMensagem("Ouro insuficiente! Uma pocao extra custa 15 de ouro.");
                 }
@@ -332,7 +377,7 @@ public class GameController {
 
     // ==================== USAR POCAO FORA DE COMBATE ====================
 
-    private void usarPocaoForaCombate() {
+    /*private void usarPocaoForaCombate() {
         List<Item> itens = inventario.listarTodos();
 
         if (itens.isEmpty()) {
@@ -371,7 +416,7 @@ public class GameController {
         } else {
             gameView.mostrarMensagem("Este item nao pode ser usado agora.");
         }
-    }
+    }*/
 
     // ==================== COMBATE ====================
 
@@ -457,6 +502,7 @@ public class GameController {
 
         if (fugiu) {
             gameView.mostrarMensagem("\nVoce escapou. Preparacao novamente...");
+            Log.registar("Fugiu de: " + inimigo.getNome() + " | Fase: " + fase);
             gameView.aguardar();
             model.setState("PREPARACAO");
             return;
@@ -464,6 +510,7 @@ public class GameController {
 
         if (!player.vivo()) {
             gameView.mostrarMensagem("\nVoce foi derrotado...");
+            Log.registar("Derrota para: " + inimigo.getNome() + " | Fase: " + fase);
             gameView.aguardar();
             model.setState("GAME_OVER");
             return;
@@ -471,6 +518,7 @@ public class GameController {
 
         // VITORIA no combate
         gameView.mostrarMensagem(inimigo.getNome() + " foi derrotado!");
+        Log.registar("Vitoria contra: " + inimigo.getNome() + " | XP: " + inimigo.getXpReward() + " | Gold: " + inimigo.getGoldReward());
 
         int xpFinal = inimigo.getXpReward() * 3;
         int goldFinal = inimigo.getGoldReward();
@@ -510,6 +558,7 @@ public class GameController {
 
         if (model.getInimigosNestaFase() >= necessarios) {
             gameView.mostrarMensagem("\n=== FASE " + fase + " COMPLETA! ===");
+            Log.registar("Fase " + fase + " completa! | Inimigos derrotados: " + model.getInimigosDerrotados());
             gameView.aguardar();
 
             if (fase >= 4) {
@@ -616,6 +665,7 @@ public class GameController {
         Player player = model.getPlayer();
         gameView.mostrarHUD(player, model.getGold());
         gameView.mostrarMensagem("Inimigos derrotados: " + model.getInimigosDerrotados());
+        Log.registar("VITORIA FINAL! Personagem: " + player.getNome() + " | Inimigos derrotados: " + model.getInimigosDerrotados());
 
         gameView.aguardar();
         rodando = false;

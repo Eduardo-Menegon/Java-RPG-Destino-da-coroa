@@ -10,11 +10,19 @@ public class InventarioController {
     private Inventario inventario;
     private final InventarioView view;
     private boolean executando = true;
+
     public InventarioController() {
         this.view = new InventarioView();
     }
-    public void iniciar() {
-        inicializarInventario();
+
+    // novo construtor ← aqui, fora de tudo
+    public InventarioController(Inventario inventario) {
+        this.inventario = inventario;
+        this.view = new InventarioView();
+    }
+
+    public void iniciarNoJogo() {
+        executando = true;
         while (executando) {
             view.exibirCabecalho(inventario);
             view.exibirMenuPrincipal();
@@ -22,12 +30,16 @@ public class InventarioController {
                 int opcao = Integer.parseInt(System.console() != null
                         ? System.console().readLine()
                         : new java.util.Scanner(System.in).nextLine().trim());
-                processarOpcaoPrincipal(opcao);
+                processarOpcaoPrincipalNoJogo(opcao); // <-- usa esse
             } catch (NumberFormatException e) {
                 view.exibirErro("Opção inválida.");
             }
         }
     }
+    private void acaoSairNoJogo() {
+        executando = false; // só fecha o inventário, volta pro jogo
+    }
+
     private void inicializarInventario() {
         if (Inventario.arquivoExiste() && view.perguntarCarregarSalvo()) {
             try {
@@ -53,7 +65,8 @@ public class InventarioController {
         inventario = new Inventario(nome, capacidade);
         view.exibirSucesso("Inventário criado para " + nome + "!");
     }
-    private void processarOpcaoPrincipal(int opcao) {
+
+    private void processarOpcaoPrincipalNoJogo(int opcao) {
         switch (opcao) {
             case 1 -> acaoListar();
             case 2 -> acaoAdicionar();
@@ -61,8 +74,7 @@ public class InventarioController {
             case 4 -> acaoRemover();
             case 5 -> acaoBuscar();
             case 6 -> acaoEstatisticas();
-            case 7 -> acaoSalvar();
-            case 0 -> acaoSair();
+            case 0 -> executando = false; // volta pro jogo sem salvar
             default -> view.exibirErro("Opção inválida.");
         }
     }
